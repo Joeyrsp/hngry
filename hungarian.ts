@@ -13,30 +13,39 @@ const matrix = [
   [0, 0, 3, 4],
   [3, 0, 7, 4],
   [6, 1, 0, 0],
-  [1, 0, 4, 9],
+  [1, 0, 4, 9]
 ];
 
-const number_to_bool = (matrix: NumberMatrix): BoolMatrix =>
-  matrix.map((row) => row.map((cell) => Boolean(cell)));
+const compose = (...args: Function[]) => (initialValue: any) =>
+  args.reduce((res, fn) => fn(res), initialValue);
 
-const bool_matrix = number_to_bool(matrix); //=
+const cast_num_to_bool = (matrix: NumberMatrix): BoolMatrix =>
+  matrix.map(row => row.map(cell => Boolean(cell)));
 
-const count_zeros_by_row = (matrix: BoolMatrix) =>
-  matrix.map((row) => row.reduce((count, cell) => count + Number(!cell), 0));
+// const get_nth_row = <T>(n: number) => (matrix: T[][]): T[] => matrix[n];
 
-const count_zeros_by_column = (matrix: BoolMatrix) =>
-  Array(matrix.length)
-    .fill(true) // literally anything in there lmao
-    .map((element, index) =>
-      matrix.reduce((previous, current) => previous + (current[index] ? 0 : 1), 0)
-    );
+const get_nth_col = <T>(n: number) => (matrix: T[][]): T[] =>
+  matrix.map(col => col[n]);
 
-const row_zeros = count_zeros_by_row(bool_matrix); //=
-const column_zeros = count_zeros_by_column(bool_matrix); //=
+const count_false_values = (array: boolean[]) =>
+  array.filter(value => !value).length;
 
-const index_of_largest = (numbers: NumberMatrixRow) => Object.entries(numbers).reduce((previous, current) => current[1] > previous[1] ? current : previous)
+const bool_matrix = cast_num_to_bool(matrix); //=
 
-const best_row = index_of_largest(row_zeros) //=
-const best_column = index_of_largest(column_zeros) //=
+const squashed_rows = bool_matrix.map(count_false_values);
+const squashed_colums = bool_matrix[0].map((_, i) =>
+  compose(get_nth_col(i), count_false_values)(bool_matrix)
+);
 
-const best_line = best_column[1] > best_row[1] ? [Direction.Column, best_column[0]] : [Direction.Row, best_row[0]] //=
+const index_of_largest = (numbers: NumberMatrixRow) =>
+  Object.entries(numbers).reduce((previous, current) =>
+    current[1] > previous[1] ? current : previous
+  );
+
+const best_row = index_of_largest(squashed_rows); //=
+const best_column = index_of_largest(squashed_colums); //=
+
+const best_line =
+  best_column[1] > best_row[1]
+    ? [Direction.Column, best_column[0]]
+    : [Direction.Row, best_row[0]]; //=
