@@ -5,8 +5,8 @@ type NumberMatrixRow = number[];
 type NumberMatrix = NumberMatrixRow[];
 
 enum Direction {
-  Row,
-  Column
+  Row = "Row",
+  Column = "Col"
 }
 
 const matrix = [
@@ -23,7 +23,6 @@ const cast_num_to_bool = (matrix: NumberMatrix): BoolMatrix =>
   matrix.map(row => row.map(cell => Boolean(cell)));
 
 // const get_nth_row = <T>(n: number) => (matrix: T[][]): T[] => matrix[n];
-
 const get_nth_col = <T>(n: number) => (matrix: T[][]): T[] =>
   matrix.map(col => col[n]);
 
@@ -37,15 +36,26 @@ const squashed_colums = bool_matrix[0].map((_, i) =>
   compose(get_nth_col(i), count_false_values)(bool_matrix)
 );
 
-const index_of_largest = (numbers: NumberMatrixRow) =>
-  Object.entries(numbers).reduce((previous, current) =>
-    current[1] > previous[1] ? current : previous
+interface Line {
+  direction?: string; 
+  index: number;
+  count: number;
+}
+
+const index_of_largest_line = (numbers: NumberMatrixRow): Line =>
+  numbers.reduce(
+    (previousLine, count, index) =>
+      count > previousLine.count ? { index, count } : previousLine,
+    { index: -1, count: -1 }
   );
 
-const best_row = index_of_largest(squashed_rows); //=
-const best_column = index_of_largest(squashed_colums); //=
+const best_row = index_of_largest_line(squashed_rows); //=
+const best_column = index_of_largest_line(squashed_colums); //=
+
 
 const best_line =
-  best_column[1] > best_row[1]
-    ? [Direction.Column, best_column[0]]
-    : [Direction.Row, best_row[0]]; //=
+  best_column.count > best_row.count
+    ? {direction: Direction.Column, ...best_column}
+    : {direction: Direction.Row, ...best_row}; //=
+
+console.log(best_line);
