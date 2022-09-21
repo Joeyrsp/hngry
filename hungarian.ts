@@ -4,6 +4,12 @@ type BoolMatrix = BoolMatrixRow[];
 type NumberMatrixRow = number[];
 type NumberMatrix = NumberMatrixRow[];
 
+interface Line {
+  direction?: string;
+  index: number;
+  count: number;
+}
+
 enum Direction {
   Row = "Row",
   Column = "Col"
@@ -29,19 +35,6 @@ const get_nth_col = <T>(n: number) => (matrix: T[][]): T[] =>
 const count_false_values = (array: boolean[]) =>
   array.filter(value => !value).length;
 
-const bool_matrix = cast_num_to_bool(matrix); //=
-
-const squashed_rows = bool_matrix.map(count_false_values);
-const squashed_colums = bool_matrix[0].map((_, i) =>
-  compose(get_nth_col(i), count_false_values)(bool_matrix)
-);
-
-interface Line {
-  direction?: string;
-  index: number;
-  count: number;
-}
-
 const index_of_largest_line = (numbers: NumberMatrixRow): Line =>
   numbers.reduce(
     (previousLine, count, index) =>
@@ -49,26 +42,43 @@ const index_of_largest_line = (numbers: NumberMatrixRow): Line =>
     { index: -1, count: -1 }
   );
 
-const best_row = index_of_largest_line(squashed_rows); //=
-const best_column = index_of_largest_line(squashed_colums); //=
+const get_best_line = (m: BoolMatrix) => {
+  const squashed_rows = m.map(count_false_values);
+  const squashed_colums = m[0].map((_, i) =>
+    compose(get_nth_col(i), count_false_values)(m)
+  );
 
-const best_line =
-  best_column.count > best_row.count
+  const best_row = index_of_largest_line(squashed_rows);
+  const best_column = index_of_largest_line(squashed_colums);
+
+  return best_column.count > best_row.count
     ? { direction: Direction.Column, ...best_column }
-    : { direction: Direction.Row, ...best_row }; //=
+    : { direction: Direction.Row, ...best_row };
+};
 
 const set_line_to_true = ({ direction, index }: Line) => (
   matrix: BoolMatrix
 ) => {
+  let nextMatrix = [...matrix];
+
   if (direction === Direction.Row) {
-    matrix[index] = new Array(matrix.length).fill(true);
+    nextMatrix[index] = new Array(matrix.length).fill(true);
+    return nextMatrix;
   } else {
-    matrix.map(row => {
-      row[index] = true;
-      return row;
+    return nextMatrix.map(row => {
+      const nextRow = [...row];
+      nextRow[index] = true;
+      return nextRow;
     });
   }
-  return matrix;
 };
 
-console.log(set_line_to_true(best_line)(bool_matrix));
+const m0 = cast_num_to_bool(matrix); //=
+const m1 = set_line_to_true(get_best_line(m0))(m0); //=
+const m2 = set_line_to_true(get_best_line(m1))(m1); //=
+const m3 = set_line_to_true(get_best_line(m2))(m2); //=
+
+console.log(m0);
+console.log(m1);
+console.log(m2);
+console.log(m3);
