@@ -37,7 +37,7 @@ const squashed_colums = bool_matrix[0].map((_, i) =>
 );
 
 interface Line {
-  direction?: string; 
+  direction?: string;
   index: number;
   count: number;
 }
@@ -52,10 +52,23 @@ const index_of_largest_line = (numbers: NumberMatrixRow): Line =>
 const best_row = index_of_largest_line(squashed_rows); //=
 const best_column = index_of_largest_line(squashed_colums); //=
 
-
 const best_line =
   best_column.count > best_row.count
-    ? {direction: Direction.Column, ...best_column}
-    : {direction: Direction.Row, ...best_row}; //=
+    ? { direction: Direction.Column, ...best_column }
+    : { direction: Direction.Row, ...best_row }; //=
 
-console.log(best_line);
+const set_line_to_true = ({ direction, index }: Line) => (
+  matrix: BoolMatrix
+) => {
+  if (direction === Direction.Row) {
+    matrix[index] = new Array(matrix.length).fill(true);
+  } else {
+    matrix.map(row => {
+      row[index] = true;
+      return row;
+    });
+  }
+  return matrix;
+};
+
+console.log(set_line_to_true(best_line)(bool_matrix));
