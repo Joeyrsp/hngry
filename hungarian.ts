@@ -6,13 +6,17 @@ type NumberMatrix = NumberMatrixRow[];
 
 interface Line {
   direction?: string;
-  index: number;
-  count: number;
+  index?: number;
+  count?: number;
+}
+interface Lines {
+  rows: Line[];
+  cols: Line[];
 }
 
 enum Direction {
   Row = "Row",
-  Column = "Col"
+  Col = "Col"
 }
 
 const matrix = [
@@ -52,7 +56,7 @@ const get_best_line = (m: BoolMatrix) => {
   const best_column = index_of_largest_line(squashed_colums);
 
   return best_column.count > best_row.count
-    ? { direction: Direction.Column, ...best_column }
+    ? { direction: Direction.Col, ...best_column }
     : { direction: Direction.Row, ...best_row };
 };
 
@@ -73,12 +77,35 @@ const set_line_to_true = ({ direction, index }: Line) => (
   }
 };
 
-const m0 = cast_num_to_bool(matrix); //=
-const m1 = set_line_to_true(get_best_line(m0))(m0); //=
-const m2 = set_line_to_true(get_best_line(m1))(m1); //=
-const m3 = set_line_to_true(get_best_line(m2))(m2); //=
+const cover_false_values = (matrix: BoolMatrix) => {
+  const lines = { rows: [], cols: [] };
 
-console.log(m0);
-console.log(m1);
-console.log(m2);
-console.log(m3);
+  const cover_recursive = (lines, matrix) => {
+    const nextLine = get_best_line(matrix);
+
+    if (nextLine.count > 0) {
+      const nextMatrix = set_line_to_true(nextLine)(matrix);
+
+      return cover_recursive(
+        {
+          rows: [
+            ...lines.rows,
+            nextLine.direction === Direction.Row && nextLine
+          ].filter(x => Boolean(x)),
+          cols: [
+            ...lines.cols,
+            nextLine.direction === Direction.Col && nextLine
+          ].filter(x => Boolean(x))
+        },
+        nextMatrix
+      );
+    }
+    return lines;
+  };
+
+  return cover_recursive(lines, matrix);
+};
+
+const bool_matrix = cast_num_to_bool(matrix); //=
+const covered_matrix = cover_false_values(bool_matrix); //=
+console.log(covered_matrix);
