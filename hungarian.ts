@@ -121,7 +121,18 @@ const cover_false_values = (matrix: BoolMatrix) => {
   return cover_recursive(lines, matrix);
 };
 
+const find_intersections = (lines: Lines) => {
+  return lines.rows.reduce(
+    (acc, row) => [
+      ...acc,
+      ...lines.cols.reduce((bcc, col) => [...bcc, [row.index, col.index]], [])
+    ],
+    []
+  );
+};
+
 const bool_matrix = cast_num_to_bool(matrix); //=
 const covered_matrix = cover_false_values(bool_matrix); //=
 console.log(covered_matrix);
+console.log(find_intersections(covered_matrix));
 console.log(cover_false_values(cast_num_to_bool(matrix2)));
