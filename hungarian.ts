@@ -95,7 +95,7 @@ const set_line_to_true = ({ direction, index }: Line) => (
 const cover_false_values = (matrix: BoolMatrix) => {
   const lines = { rows: [], cols: [] };
 
-  const cover_recursive = (lines, matrix) => {
+  const cover_recursive = (lines: Lines, matrix: BoolMatrix) => {
     const nextLine = get_best_line(matrix);
 
     if (nextLine.count > 0) {
