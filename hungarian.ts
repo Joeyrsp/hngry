@@ -26,6 +26,13 @@ const matrix = [
   [1, 0, 4, 9]
 ];
 
+const matrix2 = [
+  [0, 0, 1, 5],
+  [2, 0, 0, 3],
+  [0, 1, 3, 6],
+  [0, 0, 0, 5]
+];
+
 const compose = (...args: Function[]) => (initialValue: any) =>
   args.reduce((res, fn) => fn(res), initialValue);
 
@@ -55,9 +62,17 @@ const get_best_line = (m: BoolMatrix) => {
   const best_row = index_of_largest_line(squashed_rows);
   const best_column = index_of_largest_line(squashed_colums);
 
-  return best_column.count > best_row.count
-    ? { direction: Direction.Col, ...best_column }
-    : { direction: Direction.Row, ...best_row };
+  const line_col = { direction: Direction.Col, ...best_column };
+  const line_row = { direction: Direction.Row, ...best_row };
+
+  if (best_column.count > best_row.count) {
+    return line_col;
+  }
+  if (best_column.count < best_row.count) {
+    return line_row;
+  }
+
+  return squashed_rows.length < squashed_colums.length ? line_row : line_col;
 };
 
 const set_line_to_true = ({ direction, index }: Line) => (
@@ -109,3 +124,4 @@ const cover_false_values = (matrix: BoolMatrix) => {
 const bool_matrix = cast_num_to_bool(matrix); //=
 const covered_matrix = cover_false_values(bool_matrix); //=
 console.log(covered_matrix);
+console.log(cover_false_values(cast_num_to_bool(matrix2)));
