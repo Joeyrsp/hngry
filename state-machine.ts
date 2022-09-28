@@ -3,6 +3,10 @@ import { assign, createMachine, interpret } from "xstate";
 type Vector<T> = T[];
 type Matrix<T> = Vector<T>[];
 
+type RowIndex = number;
+type ColIndex = number;
+type Location = [RowIndex, ColIndex];
+
 enum Coverage {
   Uncovered,
   Covered
@@ -42,6 +46,8 @@ interface HungarianContext {
   zeroMatrix?: Matrix<Zeros>;
   rowCoverageVector?: Vector<Coverage>;
   colCoverageVector?: Vector<Coverage>;
+  uncoveredZeroLocation?: Location;
+  primedZeroLocation?: Location;
 }
 
 const hungarianMachine = createMachine<HungarianContext>(
@@ -75,7 +81,14 @@ const hungarianMachine = createMachine<HungarianContext>(
           { target: "step4" }
         ]
       },
-      step4: { entry: ["primeZero"] },
+      step4: {
+        entry: ["primeZero"],
+        always: [
+          { target: "step6", cond: "hasNoUncoveredZero" },
+          { target: "step5", cond: "hasPrimedZero" },
+          { target: "step4" }
+        ]
+      },
       step5: {},
       step6: {},
       done: {
@@ -143,29 +156,46 @@ const hungarianMachine = createMachine<HungarianContext>(
         const rowCoverageVector = [...context.rowCoverageVector];
         const colCoverageVector = [...context.colCoverageVector];
 
+        let uncoveredZeroLocation: Location;
+        let primedZeroLocation: Location;
+
         for (let c = 0; c < colCoverageVector.length; c++) {
+          if (colCoverageVector[c] === Coverage.Covered) continue;
+
           for (let r = 0; r < rowCoverageVector.length; r++) {
-            if (colCoverageVector[c] === Coverage.Uncovered) {
-              const element = context.matrix[r][c];
+            if (rowCoverageVector[r] === Coverage.Covered) continue;
 
-              if (element === 0) {
-                zeroMatrix[r][c] = Zeros.PrimedZero;
+            const element = context.matrix[r][c];
 
-                const starredZeroInRow = zeroMatrix[r].findIndex(
-                  element => element === Zeros.StarredZero,
-                  0
-                );
+            if (element === 0) {
+              uncoveredZeroLocation = [r, c];
+              console.log(uncoveredZeroLocation);
 
-                if (starredZeroInRow > -1) {
-                  rowCoverageVector[r] = Coverage.Covered;
-                  colCoverageVector[starredZeroInRow] = Coverage.Uncovered;
-                }
+              zeroMatrix[r][c] = Zeros.PrimedZero;
+
+              const starredZeroInRow = zeroMatrix[r].findIndex(
+                element => element === Zeros.StarredZero,
+                0
+              );
+
+              if (starredZeroInRow > -1) {
+                rowCoverageVector[r] = Coverage.Covered;
+                colCoverageVector[starredZeroInRow] = Coverage.Uncovered;
+              } else {
+                primedZeroLocation = [r, c];
               }
+              break;
             }
           }
         }
 
-        return { zeroMatrix, rowCoverageVector, colCoverageVector };
+        return {
+          zeroMatrix,
+          rowCoverageVector,
+          colCoverageVector,
+          uncoveredZeroLocation,
+          primedZeroLocation
+        };
       })
     },
     guards: {
@@ -174,7 +204,9 @@ const hungarianMachine = createMachine<HungarianContext>(
           (count: number, coverage: Coverage) =>
             count + Number(coverage === Coverage.Covered),
           0
-        ) === context.matrix.length
+        ) === context.matrix.length,
+      hasNoUncoveredZero: context => !Boolean(context.uncoveredZeroLocation),
+      hasPrimedZero: context => Boolean(context.primedZeroLocation)
     }
   }
 );
