@@ -41,6 +41,7 @@ const matrix3 = [
 
 const cloneMatrix = <T>(matrix: Matrix<T>) => [...matrix.map(row => [...row])];
 
+type ShouldBreak = boolean | void;
 interface LocationAndValue {
   location: Location;
   element: any;
@@ -48,15 +49,11 @@ interface LocationAndValue {
 interface TraverseCoveredMatrixColWiseProps {
   rowCoverageVector: Vector<Coverage>;
   colCoverageVector: Vector<Coverage>;
-  condition?: ({ location, element }: LocationAndValue) => boolean;
-  breakOnCondition?: boolean;
-  callback: ({ location, element }: LocationAndValue) => void;
+  callback: ({ location, element }: LocationAndValue) => ShouldBreak;
 }
 const traverseCoveredMatrixColWise = <T>({
   rowCoverageVector,
   colCoverageVector,
-  condition = ({ location, element }) => true,
-  breakOnCondition,
   callback
 }: TraverseCoveredMatrixColWiseProps) => (matrix: Matrix<T>) => {
   for (let c = 0; c < matrix[0].length; c++) {
@@ -68,10 +65,7 @@ const traverseCoveredMatrixColWise = <T>({
       const location: Location = [r, c];
       const element = matrix[r][c];
 
-      if (condition({ location, element })) {
-        callback({ location, element });
-        if (breakOnCondition) break;
-      }
+      if (callback({ location, element })) return;
     }
   }
 };
@@ -244,6 +238,9 @@ const hungarianMachine = createMachine<HungarianContext>(
               uncoveredValues.push(element);
             }
           })(context.matrix);
+
+          const min = Math.min(...uncoveredValues)
+          console.log(min)
 
           return context.matrix;
         }
