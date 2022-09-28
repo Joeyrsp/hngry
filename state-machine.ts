@@ -192,31 +192,32 @@ const hungarianMachine = createMachine<HungarianContext>(
         for (let c = 0; c < colCoverageVector.length; c++) {
           if (colCoverageVector[c] === Coverage.Covered) continue;
 
-          for (let r = 0; r < rowCoverageVector.length; r++) {
-            if (rowCoverageVector[r] === Coverage.Covered) continue;
+          traverseCoveredMatrixColWise({
+            rowCoverageVector: context.rowCoverageVector,
+            colCoverageVector: context.colCoverageVector,
+            callback: ({ element, location }) => {
+              if (element === 0) {
+                uncoveredZeroLocation = location;
 
-            const element = context.matrix[r][c];
+                const [r, c] = location;
+                zeroMatrix[r][c] = Zeros.PrimedZero;
 
-            if (element === 0) {
-              uncoveredZeroLocation = [r, c];
+                const starredZeroCol = zeroMatrix[r].findIndex(
+                  element => element === Zeros.StarredZero,
+                  0
+                );
 
-              zeroMatrix[r][c] = Zeros.PrimedZero;
+                if (starredZeroCol > -1) {
+                  rowCoverageVector[r] = Coverage.Covered;
+                  colCoverageVector[starredZeroCol] = Coverage.Uncovered;
+                } else {
+                  primedZeroLocation = [r, c];
+                }
 
-              const starredZeroInRow = zeroMatrix[r].findIndex(
-                element => element === Zeros.StarredZero,
-                0
-              );
-
-              if (starredZeroInRow > -1) {
-                rowCoverageVector[r] = Coverage.Covered;
-                colCoverageVector[starredZeroInRow] = Coverage.Uncovered;
-              } else {
-                primedZeroLocation = [r, c];
+                return true;
               }
-
-              break;
             }
-          }
+          })(context.matrix);
         }
 
         return {
@@ -239,8 +240,7 @@ const hungarianMachine = createMachine<HungarianContext>(
             }
           })(context.matrix);
 
-          const min = Math.min(...uncoveredValues)
-          console.log(min)
+          const min = Math.min(...uncoveredValues);
 
           return context.matrix;
         }
