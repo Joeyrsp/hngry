@@ -46,16 +46,16 @@ interface LocationAndValue {
   location: Location;
   element: any;
 }
-interface TraverseCoveredMatrixColWiseProps {
+interface TraverseUncoveredElementsProps {
   rowCoverageVector: Vector<Coverage>;
   colCoverageVector: Vector<Coverage>;
   callback: ({ location, element }: LocationAndValue) => ShouldBreak;
 }
-const traverseCoveredMatrixColWise = <T>({
+const traverseUncoveredElements = <T>({
   rowCoverageVector,
   colCoverageVector,
   callback
-}: TraverseCoveredMatrixColWiseProps) => (matrix: Matrix<T>) => {
+}: TraverseUncoveredElementsProps) => (matrix: Matrix<T>) => {
   for (let c = 0; c < matrix[0].length; c++) {
     if (colCoverageVector[c] === Coverage.Covered) continue;
 
@@ -119,7 +119,7 @@ const hungarianMachine = createMachine<HungarianContext>(
         ]
       },
       step5: {},
-      step6: { entry: ["minimizeUncoveredElements"] },
+      step6: { entry: ["shiftZeros"], always: "step4" },
       done: {
         type: "final"
       }
@@ -188,37 +188,32 @@ const hungarianMachine = createMachine<HungarianContext>(
         let uncoveredZeroLocation: Location;
         let primedZeroLocation: Location;
 
-        // find uncovered zero col-wise
-        for (let c = 0; c < colCoverageVector.length; c++) {
-          if (colCoverageVector[c] === Coverage.Covered) continue;
+        traverseUncoveredElements({
+          rowCoverageVector: context.rowCoverageVector,
+          colCoverageVector: context.colCoverageVector,
+          callback: ({ element, location }) => {
+            if (element === 0) {
+              uncoveredZeroLocation = location;
 
-          traverseCoveredMatrixColWise({
-            rowCoverageVector: context.rowCoverageVector,
-            colCoverageVector: context.colCoverageVector,
-            callback: ({ element, location }) => {
-              if (element === 0) {
-                uncoveredZeroLocation = location;
+              const [r, c] = location;
+              zeroMatrix[r][c] = Zeros.PrimedZero;
 
-                const [r, c] = location;
-                zeroMatrix[r][c] = Zeros.PrimedZero;
+              const starredZeroCol = zeroMatrix[r].findIndex(
+                element => element === Zeros.StarredZero,
+                0
+              );
 
-                const starredZeroCol = zeroMatrix[r].findIndex(
-                  element => element === Zeros.StarredZero,
-                  0
-                );
-
-                if (starredZeroCol > -1) {
-                  rowCoverageVector[r] = Coverage.Covered;
-                  colCoverageVector[starredZeroCol] = Coverage.Uncovered;
-                } else {
-                  primedZeroLocation = [r, c];
-                }
-
-                return true;
+              if (starredZeroCol > -1) {
+                rowCoverageVector[r] = Coverage.Covered;
+                colCoverageVector[starredZeroCol] = Coverage.Uncovered;
+              } else {
+                primedZeroLocation = [r, c];
               }
+
+              return true;
             }
-          })(context.matrix);
-        }
+          }
+        })(context.matrix);
 
         return {
           zeroMatrix,
@@ -228,11 +223,11 @@ const hungarianMachine = createMachine<HungarianContext>(
           primedZeroLocation
         };
       }),
-      minimizeUncoveredElements: assign({
+      shiftZeros: assign({
         matrix: context => {
           const uncoveredValues: number[] = [];
 
-          traverseCoveredMatrixColWise({
+          traverseUncoveredElements({
             rowCoverageVector: context.rowCoverageVector,
             colCoverageVector: context.colCoverageVector,
             callback: ({ element }) => {
@@ -242,7 +237,20 @@ const hungarianMachine = createMachine<HungarianContext>(
 
           const min = Math.min(...uncoveredValues);
 
-          return context.matrix;
+          const nextMatrix = context.matrix.map((row, r) =>
+            row.map((element, c) => {
+              let nextElement = element;
+
+              if (context.rowCoverageVector[r] === Coverage.Covered)
+                nextElement = nextElement + min;
+              if (context.colCoverageVector[c] === Coverage.Uncovered)
+                nextElement = nextElement - min;
+
+              return nextElement;
+            })
+          );
+
+          return nextMatrix;
         }
       })
     },
