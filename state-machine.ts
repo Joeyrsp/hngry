@@ -1,21 +1,25 @@
 import { assign, createMachine, interpret } from "xstate";
 
-type MatrixRow<T> = T[];
-type MatrixCol<T> = T[];
-type Matrix<T> = MatrixRow<T>[];
+type Vector<T> = T[];
+type Matrix<T> = Vector<T>[];
 
-enum MaskElem {
+enum Coverage {
+  Uncovered,
+  Covered
+}
+
+enum Zeros {
   NotZero,
   StarredZero,
   PrimedZero
 }
 
-// const matrix = [
-//   [0, 0, 3, 4],
-//   [3, 0, 7, 4],
-//   [6, 1, 0, 0],
-//   [1, 0, 4, 9]
-// ];
+const matrix = [
+  [3, 3, 6, 7],
+  [6, 3, 10, 7],
+  [9, 4, 3, 3],
+  [4, 3, 7, 12]
+];
 
 // const matrix2 = [
 //   [0, 0, 1, 5],
@@ -31,11 +35,13 @@ const matrix3 = [
   [4, 8, 12, 16]
 ];
 
+const cloneMatrix = <T>(matrix: Matrix<T>) => [...matrix.map(row => [...row])];
+
 interface HungarianContext {
   matrix: Matrix<number>;
-  zeroMask?: Matrix<MaskElem>;
-  rowVector?: MatrixRow<boolean>;
-  colVector?: MatrixRow<boolean>;
+  zeroMatrix?: Matrix<Zeros>;
+  rowCoverageVector?: Vector<Coverage>;
+  colCoverageVector?: Vector<Coverage>;
 }
 
 const hungarianMachine = createMachine<HungarianContext>(
@@ -43,7 +49,12 @@ const hungarianMachine = createMachine<HungarianContext>(
     id: "machine",
     predictableActionArguments: true,
     initial: "step0",
-    context: { matrix: [[]], zeroMask: [[]], rowVector: [], colVector: [] },
+    context: {
+      matrix: [[]],
+      zeroMatrix: [[]],
+      rowCoverageVector: [],
+      colCoverageVector: []
+    },
     states: {
       step0: {
         entry: ["setupContext"],
@@ -57,51 +68,119 @@ const hungarianMachine = createMachine<HungarianContext>(
         entry: ["markZeros"],
         always: "step3"
       },
-      step3: {}
+      step3: {
+        entry: ["coverCols"],
+        always: [
+          { target: "done", cond: "allColsCovered" },
+          { target: "step4" }
+        ]
+      },
+      step4: { entry: ["primeZero"] },
+      step5: {},
+      step6: {},
+      done: {
+        type: "final"
+      }
     }
   },
   {
     actions: {
       setupContext: assign({
-        zeroMask: ({ matrix }) =>
-          matrix.map(row => new Array(row.length).fill(MaskElem.NotZero)),
-        rowVector: ({ matrix }) => new Array(matrix.length).fill(false),
-        colVector: ({ matrix }) => new Array(matrix[0].length).fill(false)
+        zeroMatrix: context =>
+          context.matrix.map(row => new Array(row.length).fill(Zeros.NotZero)),
+        rowCoverageVector: context =>
+          new Array(context.matrix.length).fill(Coverage.Uncovered),
+        colCoverageVector: context =>
+          new Array(context.matrix[0].length).fill(Coverage.Uncovered)
       }),
       minimizeRows: assign({
-        matrix: ({ matrix }) =>
-          matrix.map(row => {
+        matrix: context =>
+          context.matrix.map(row => {
             const min = Math.min(...row);
             return row.map(elem => elem - min);
           })
       }),
-      markZeros: assign(context => {
-        const rowVector = [...context.rowVector];
-        const colVector = [...context.colVector];
+      markZeros: assign({
+        zeroMatrix: context => {
+          const rowCoverageVector = [...context.rowCoverageVector];
+          const colCoverageVector = [...context.colCoverageVector];
 
-        const zeroMask = context.matrix.map((row, r) =>
-          row.map((elem, c) => {
-            if (
-              elem === 0 &&
-              rowVector[r] === false &&
-              colVector[c] === false
-            ) {
-              rowVector[r] = true;
-              colVector[c] = true;
-              return MaskElem.StarredZero;
+          const zeroMatrix = context.matrix.map((row, r) =>
+            row.map((elem, c) => {
+              if (
+                elem === 0 &&
+                rowCoverageVector[r] === Coverage.Uncovered &&
+                colCoverageVector[c] === Coverage.Uncovered
+              ) {
+                rowCoverageVector[r] = Coverage.Covered;
+                colCoverageVector[c] = Coverage.Covered;
+                return Zeros.StarredZero;
+              }
+              return Zeros.NotZero;
+            })
+          );
+          return zeroMatrix;
+        }
+      }),
+      coverCols: assign({
+        colCoverageVector: context => {
+          const colCoverageVector = [...context.colCoverageVector];
+
+          context.zeroMatrix.forEach(row =>
+            row.forEach((elem, c) => {
+              if (elem === Zeros.StarredZero) {
+                colCoverageVector[c] = Coverage.Covered;
+              }
+            })
+          );
+
+          return colCoverageVector;
+        }
+      }),
+      primeZero: assign(context => {
+        // WIP
+        const zeroMatrix = cloneMatrix(context.zeroMatrix);
+        const rowCoverageVector = [...context.rowCoverageVector];
+        const colCoverageVector = [...context.colCoverageVector];
+
+        for (let c = 0; c < colCoverageVector.length; c++) {
+          for (let r = 0; r < rowCoverageVector.length; r++) {
+            if (colCoverageVector[c] === Coverage.Uncovered) {
+              const element = context.matrix[r][c];
+
+              if (element === 0) {
+                zeroMatrix[r][c] = Zeros.PrimedZero;
+
+                const starredZeroInRow = zeroMatrix[r].findIndex(
+                  element => element === Zeros.StarredZero,
+                  0
+                );
+
+                if (starredZeroInRow > -1) {
+                  rowCoverageVector[r] = Coverage.Covered;
+                  colCoverageVector[starredZeroInRow] = Coverage.Uncovered;
+                }
+              }
             }
-            return MaskElem.NotZero;
-          })
-        );
+          }
+        }
 
-        return { zeroMask, rowVector, colVector };
+        return { zeroMatrix, rowCoverageVector, colCoverageVector };
       })
+    },
+    guards: {
+      allColsCovered: context =>
+        context.colCoverageVector.reduce(
+          (count: number, coverage: Coverage) =>
+            count + Number(coverage === Coverage.Covered),
+          0
+        ) === context.matrix.length
     }
   }
 );
 
 // Edit your service(s) here
-const service = interpret(hungarianMachine.withContext({ matrix: matrix3 }))
+const service = interpret(hungarianMachine.withContext({ matrix }))
   .onTransition(state => {
     console.log(state.value, state.context);
   })
