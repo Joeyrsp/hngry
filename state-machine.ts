@@ -41,6 +41,41 @@ const matrix3 = [
 
 const cloneMatrix = <T>(matrix: Matrix<T>) => [...matrix.map(row => [...row])];
 
+interface LocationAndValue {
+  location: Location;
+  element: any;
+}
+interface TraverseCoveredMatrixColWiseProps {
+  rowCoverageVector: Vector<Coverage>;
+  colCoverageVector: Vector<Coverage>;
+  condition?: ({ location, element }: LocationAndValue) => boolean;
+  breakOnCondition?: boolean;
+  callback: ({ location, element }: LocationAndValue) => void;
+}
+const traverseCoveredMatrixColWise = <T>({
+  rowCoverageVector,
+  colCoverageVector,
+  condition = ({ location, element }) => true,
+  breakOnCondition,
+  callback
+}: TraverseCoveredMatrixColWiseProps) => (matrix: Matrix<T>) => {
+  for (let c = 0; c < matrix[0].length; c++) {
+    if (colCoverageVector[c] === Coverage.Covered) continue;
+
+    for (let r = 0; r < matrix.length; r++) {
+      if (rowCoverageVector[r] === Coverage.Covered) continue;
+
+      const location: Location = [r, c];
+      const element = matrix[r][c];
+
+      if (condition({ location, element })) {
+        callback({ location, element });
+        if (breakOnCondition) break;
+      }
+    }
+  }
+};
+
 interface HungarianContext {
   matrix: Matrix<number>;
   zeroMatrix?: Matrix<Zeros>;
@@ -90,7 +125,7 @@ const hungarianMachine = createMachine<HungarianContext>(
         ]
       },
       step5: {},
-      step6: {},
+      step6: { entry: ["minimizeUncoveredElements"] },
       done: {
         type: "final"
       }
@@ -159,6 +194,7 @@ const hungarianMachine = createMachine<HungarianContext>(
         let uncoveredZeroLocation: Location;
         let primedZeroLocation: Location;
 
+        // find uncovered zero col-wise
         for (let c = 0; c < colCoverageVector.length; c++) {
           if (colCoverageVector[c] === Coverage.Covered) continue;
 
@@ -169,7 +205,6 @@ const hungarianMachine = createMachine<HungarianContext>(
 
             if (element === 0) {
               uncoveredZeroLocation = [r, c];
-              console.log(uncoveredZeroLocation);
 
               zeroMatrix[r][c] = Zeros.PrimedZero;
 
@@ -184,6 +219,7 @@ const hungarianMachine = createMachine<HungarianContext>(
               } else {
                 primedZeroLocation = [r, c];
               }
+
               break;
             }
           }
@@ -196,6 +232,21 @@ const hungarianMachine = createMachine<HungarianContext>(
           uncoveredZeroLocation,
           primedZeroLocation
         };
+      }),
+      minimizeUncoveredElements: assign({
+        matrix: context => {
+          const uncoveredValues: number[] = [];
+
+          traverseCoveredMatrixColWise({
+            rowCoverageVector: context.rowCoverageVector,
+            colCoverageVector: context.colCoverageVector,
+            callback: ({ element }) => {
+              uncoveredValues.push(element);
+            }
+          })(context.matrix);
+
+          return context.matrix;
+        }
       })
     },
     guards: {
